@@ -1,17 +1,27 @@
 import React, { Component } from "react";
-import TextField from "@material-ui/core/TextField";
-import File from "../FileComponent";
+import { Container, Grid, GridSpacing, Paper, Typography, Input, InputLabel, TextField, FormGroup, FormLabel, FormControlLabel, FormHelperText, FormControl, MenuItem, Select, Checkbox, CheckboxProps, Button, Collapse } from '@material-ui/core';
 import PropTypes from "prop-types";
 import { withStyles } from "@material-ui/core/styles";
-import Input from "@material-ui/core/Input";
-import InputLabel from "@material-ui/core/InputLabel";
-import MenuItem from "@material-ui/core/MenuItem";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import FormControl from "@material-ui/core/FormControl";
-import Typography from "@material-ui/core/Typography";
-import Select from "@material-ui/core/Select";
+import { makeStyles } from '@material-ui/core/styles';
+import Box from '@material-ui/core/Box';
+import Icon from '@material-ui/core/Icon';
+import IconButton from '@material-ui/core/IconButton';
+import Table from '@material-ui/core/Table';
+import TableBody from '@material-ui/core/TableBody';
+import TableCell from '@material-ui/core/TableCell';
+import TableContainer from '@material-ui/core/TableContainer';
+import TableHead from '@material-ui/core/TableHead';
+import TableRow from '@material-ui/core/TableRow';
+import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@material-ui/icons/KeyboardArrowUp';
+
+import {
+  spacing,
+  typography,
+} from '@material-ui/system';
 import axios from 'axios'
 import Autocomplete from '@material-ui/lab/Autocomplete';
+import API from '../../../../services/index'
 const styles = theme => ({
   root: {
     display: "flex",
@@ -35,12 +45,15 @@ class AddProfile extends Component {
     this.state = {
       options : [],
       items:[],
-      inputValue:''
+      inputValue:'',
+      servicevsfee : []
     }
     this.handleChange = this.handleChange.bind(this);
     this.handleSubmit = this.handleSubmit.bind(this);
     this.handleSearchChange = this.handleSearchChange.bind(this);
     this.handleChangeautocomplete = this.handleChangeautocomplete.bind(this);
+    this.handleChangeinterms = this.handleChangeinterms.bind(this);
+    this.setOpen = this.setOpen.bind(this);
     
   }
   state = {
@@ -51,30 +64,62 @@ class AddProfile extends Component {
     payment: [],
     options : [],
     items:[],
-    inputValue:''
+    paymentTypesList:[],
+    EngagmentTermsitemsList:[],
+    inputValue:'', 
+    servicevsfee: []
   };
-  componentDidMount() {
+  handleChangeinterms(e, row, frequency){
+    if(e.target.checked){
+      row.paymentStructure.push( {id: frequency.id, value: frequency.value, fee:""} )
+    }
+    else{
+      let temp = row.paymentStructure.filter(item => item.id !== frequency.id)
+      row.paymentStructure = temp;
+    }
+    this.setState({servicevsfee : this.state.servicevsfee});
+  }
+  setOpen(row){
+    row.open = ! row.open;
+    this.setState({servicevsfee : this.state.servicevsfee});
+  }
+  async componentDidMount() {
     
-    const requestUrl = "localhost:8080"
     let itemsList = [];
-    axios.get(`http://localhost:3000/fetchAllCategories`).then((elements)=>{
-    //axios.get(`http://${requestUrl}/gharpe/search/base/fetchAllCategories`).then((elements)=>{
-    for (let value of elements.data) {
+    const elements = await API.fetchAllCategories();
+    if(elements){
+    for (let value of elements) {
       itemsList.push(<MenuItem value={value.id}>{value.value}</MenuItem>)
       }
-      this.setState({items: itemsList})
-    })
+      this.setState({items: itemsList})}
+
+      let paymentTypesList = [];
+      const paymentTypesListTerms = await API.fetchpaymentTypes();
+      if(paymentTypesListTerms){
+      for (let value of paymentTypesListTerms) {
+        
+        paymentTypesList.push(
+          <FormControlLabel
+          control={<Checkbox onChange={this.handleChange} name="payment" value={value.id} color="primary" />}
+          label={value.value}
+        />)
+        }
+        this.setState({paymentTypesList: paymentTypesList})}
+        const elementsEngagmentTerms = await API.fetchServicesEngagmentTerms();
+        if(elementsEngagmentTerms){
+          this.setState({EngagmentTermsitemsList: elementsEngagmentTerms})}
   }
-  handleSearchChange(e, element){
+  async handleSearchChange(e, element){
     console.log(e.target.value, this.state, element)
     let categoryselected = 0;
     if( this.state.category){
       categoryselected = this.state.category;
     }
-    axios.get(`http://localhost:3000/base`).then((elements)=>{
-    //axios.get(`http://localhost:8080/gharpe/search/base/${categoryselected}/${e.target.value}`).then((elements)=>{
-      this.setState({options: elements.data})
-    })
+    const elements = await API.searchbase();
+    if(elements){
+      this.setState({options: elements})
+    }
+
   }
   handleChange(e) {
     const name = e.target.name;
@@ -89,10 +134,40 @@ class AddProfile extends Component {
     this.setState({ [name]: value });
   }
   handleChangeautocomplete(e, newInputValue){
-    // console.log(newInputValue)
-    //  let feeFull = newInputValue.categoryId + " " + newInputValue.id;
+      let itemadded = true;
+      if( this.setState.services && this.setState.services.length > newInputValue.length ){
+        itemadded = false;
+      }
       this.setState({  services : newInputValue });
-      return;
+      // check, newly added item already exists ?
+      let check = false;
+      let lastitem = newInputValue[ newInputValue.length - 1];
+      if ( newInputValue.length >= 1){
+      for(let i = 0; i <= newInputValue.length - 2; i++)
+        {
+          if( newInputValue[i].id ===  lastitem.id){
+            check = true;
+          }
+        }
+        if(check){
+          newInputValue.pop();
+        }
+    }
+
+      // add or remove rows to servicevsfee
+      let servicevsfeearray = []
+      for(let i = 0; i < newInputValue.length; i++)
+      { let isexists = false;
+        for( let j=0;j < this.state.servicevsfee.length; j++ ){
+          if( this.state.servicevsfee[j].id === newInputValue[i].id){
+            servicevsfeearray.push( this.state.servicevsfee[j] );    
+            isexists = true;}
+        }
+        if( !isexists)
+        servicevsfeearray.push (   new createData( newInputValue[i], this.state.EngagmentTermsitemsList ) ); 
+      }
+      this.setState({servicevsfee : servicevsfeearray});
+      return newInputValue;
     
   }
   handleSubmit(event) {
@@ -102,32 +177,33 @@ class AddProfile extends Component {
         this.state
       )
   }
+
   render() {
     const { classes } = this.props;
     const { selected, hasError, options, items } = this.state;
-
+    
     return (
-      <div className="App">
-        <div className="container" style={{ padding: 16 }}>
-          <div className="row" style={{ paddingTop: 100 }}>
-            <main role="main" className="col-lg-7">
+      <main>
+        <Container style={{ marginTop: 80 }}>
+        <Paper elevation={3} p={2} style={{ padding: 20 }}>
+            
               <Typography variant="h5" align="center" component="h2" gutterBottom>
                 Register your profile
               </Typography>
               <form
-                className="text-left"
                 onSubmit={this.handleSubmit}
-                style={{ borderRight: "1px solid #000", paddingRight: 50 }}
               >
-                <FormControl className={classes.formControl} error={hasError}>
+              <Grid container spacing={5}>
+              <Grid item xs={12} sm={4}>
+                <FormControl className={classes.formControl} error={hasError} fullWidth>
                   <InputLabel htmlFor="category">Select Category</InputLabel>
                   <Select
                     name="category"
                     value={selected}
-                    style={{ width: 300 }}
                     defaultValue= "-1"
                     onChange={this.handleChange}
                     input={<Input id="-1" />}
+                    
                   >
                     {this.state.items}
                   </Select>
@@ -135,135 +211,114 @@ class AddProfile extends Component {
                     <FormHelperText>This is required!</FormHelperText>
                   )}
                 </FormControl>
-
-                <div className="form-group">
-  
+                </Grid>
+                <Grid item xs={12} sm={8}>
                 <Autocomplete
-                        name="services"
-                        multiple
-                        value={selected}
-                        onChange={this.handleChangeautocomplete}
-                        input={<Input id="" />}
-                        style={{ width: 300 }}
-                        onInputChange={this.handleSearchChange}
-                        id="controllable-states-demo"
-                        options={this.state.options}
-                        getOptionLabel={(option) => option.value}
-                        renderInput={(params) => (
-                          <TextField {...params} label="Services" placeholder="" />
-                        )}
-                      />
-
-                      
-                </div>
-                <div className="form-group">
-                  <textarea
-                    name="description"
-                    className="form-control"
-                    id="exampleFormControlTextarea1"
-                    rows="3"
-                    placeholder="Describe your service not more than 200 words"
-                    value={this.state.description}
-                    onChange={this.handleChange}
+                    name="services"
+                    multiple
+                    fullWidth
+                    value={selected}
+                    onChange={this.handleChangeautocomplete}
+                    input={<Input id="" />}
+                    filterSelectedOptions
+                    onInputChange={this.handleSearchChange}
+                    id="controllable-states-demo"
+                    options={this.state.options}
+                    getOptionLabel={(option) => option.value}
+                    renderInput={(params) => (
+                      <TextField {...params} label="Services" placeholder="" />
+                    )}
                   />
-                </div>
-                <div className="row">
-                  
-                  <div className="col-lg-6">
-                    <FormControl
-                      className={classes.formControl}
-                      error={hasError}
-                    >
-                      <InputLabel htmlFor="feesParam">Select</InputLabel>
-                      <Select
-                        name="feesParam"
-                        value={selected}
-                        onChange={this.handleChange}
-                        input={<Input id="yoga" />}
-                      >
-                        <MenuItem value="per session group">
-                          Per session group
-                        </MenuItem>
-                        <MenuItem value="per person">Per person</MenuItem>
-                      </Select>
+                  </Grid>
+                  <Grid item xs={12} sm={12}>
+                    <TextField
+                      name="description"
+                      id="exampleFormControlTextarea1"
+                      multiline
+                      rows={2}
+                      fullWidth
+                      placeholder="Describe your service not more than 200 words"
+                      value={this.state.description}
+                      onChange={this.handleChange}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={12}>
+                  <TableContainer >
+                    <Table aria-label="collapsible table">
+                    <TableBody>
+                  {this.state.servicevsfee.map((row) => (
+                    <React.Fragment>
+                        <TableRow className={classes.root}>
+                            <TableCell>
+                              <IconButton aria-label="expand row" size="small" onClick={() => this.setOpen(row)} >
+                                {row.open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                              </IconButton>
+                            </TableCell>
+                            <TableCell align="right">{row.value}</TableCell>
+                            <TableCell align="right">Category : {row.categoryValue}</TableCell>
+                            <TableCell align="right" colSpan="{3}"> 
+                            
+                            { this.state.EngagmentTermsitemsList.map( (listelement ) =>(
+                              <React.Fragment>
+                              <FormControlLabel control={
+                   <Checkbox onChange={ (e)=> this.handleChangeinterms(e,row,listelement)} name="payment" value={listelement.id} color="primary" />}
+                             label={listelement.value} />        
+                          </React.Fragment>
+                            ))
+                            }
+
+                            
+                            </TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell colSpan={6}>
+                              <Collapse in={row.open} timeout="auto" unmountOnExit>
+                                <Box margin={1}>
+                                  <Table size="small" aria-label="purchases">
+                                    <TableBody>
+                                       {row.paymentStructure.map((payment) => (
+                                        <TableRow >
+                                          <TableCell component="th" scope="row">
+                                            {payment.value}
+                                          </TableCell>
+                                          <TableCell>
+                                          <TextField
+                                              placeholder="Fee"
+                                              // value={payment.fee}
+                                              // onChange={this.handleChange}
+                                            />
+                                          </TableCell>
+                                        </TableRow>
+                                      ))} 
+                                    </TableBody>
+                                  </Table>
+                                </Box>
+                              </Collapse>
+                            </TableCell>
+                          </TableRow>
+
+                          </React.Fragment>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                  </Grid>
+                  <Grid item xs={12} sm={12}>
+                    <FormControl component="fieldset" className={classes.formControl}>
+                      <FormLabel component="legend">Select payment method</FormLabel>
+                      <FormGroup row>
+                        {this.state.paymentTypesList} 
+                      </FormGroup>
                     </FormControl>
-                  </div>
-
-                  <div className="col-lg-6">
-                    <div className="form-group">
-                      <TextField
-                        id="outlined-basic1"
-                        label="Fees"
-                        variant="outlined"
-                        name="fees"
-                        onChange={this.handleChange}
-                        className="form-control"
-                        value={this.state.fees}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="row">
-                  <div className="col-lg-12">
-                    <p>Select payment method</p>
-                    <div className="checkbox">
-                      <label>
-                        <input
-                          type="checkbox"
-                          onChange={this.handleChange}
-                          name="payment"
-                          value="Paytm"
-                        />Paytm
-                      </label>
-                    </div>
-                    <div className="checkbox">
-                      <label>
-                        <input
-                          type="checkbox"
-                          onChange={this.handleChange}
-                          name="payment"
-                          value="Google Pay"
-                        />Google Pay
-                      </label>
-                    </div>
-                    <div className="checkbox">
-                      <label>
-                        <input
-                          type="checkbox"
-                          onChange={this.handleChange}
-                          name="payment"
-                          value="Paypal"
-                        />Paypal
-                      </label>
-                    </div>
-                    <div className="checkbox">
-                      <label>
-                        <input
-                          type="checkbox"
-                          onChange={this.handleChange}
-                          name="payment"
-                          value="Phone Pe"
-                        />Phone Pe
-                      </label>
-                    </div>
-                  </div>
-                </div>
-                <div className="col-lg-12 submit-button">
-                  <button type="submit" className="btn btn-primary">
-                    Submit
-                  </button>
-                </div>
+                  </Grid>
+                </Grid>  
+                  
+                <Button variant="contained" color="primary">Submit</Button>
               </form>
-            </main>
-            <div className="col-lg-5 optional" style={{marginTop: 50}}>
-              <h5 className="text-left">Optional</h5>
-              <File label="Upload your pics" />
-              <File label="Upload your video" />
-            </div>
-          </div>
-        </div>
-      </div>
+          
+          </Paper>
+        </Container>
+      </main>
     );
   }
 }
@@ -273,3 +328,21 @@ AddProfile.propTypes = {
 };
 
 export default withStyles(styles)(AddProfile);
+
+
+function createData(data, term) {
+
+this.categoryId= data.categoryId;
+this.categoryValue= data.categoryValue;
+this.id= data.id;
+this.value= data.value;
+term.forEach(function (element) {
+  element.Active = "false";
+});
+
+this.term = term;
+this.paymentStructure= [];
+//{frequency:"", fee:""}
+this.open = false;
+  
+}

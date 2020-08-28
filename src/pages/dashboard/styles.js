@@ -115,7 +115,6 @@ export default makeStyles(theme => ({
   dashboardContainer: {
     boxShadow: theme.customShadows.widget,
     overflow: "hidden",
-    paddingBottom: theme.spacing(2),
-    height: `calc(100vw - 65px)`
+    paddingBottom: theme.spacing(2)
   }
 }));
